@@ -95,8 +95,8 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
 
         
         this.dateSelection = new DropdownSelection();
-        this.dateSelection.select(2);
-        this.completedDate = new ObservableValue<Date>(this.getDateForSelectionIndex(2));
+        this.dateSelection.select(1);
+        this.completedDate = new ObservableValue<Date>(this.getDateForSelectionIndex(1));
         this.displayText =  new ObservableValue<string>("Completed Since " + this.completedDate.value.toLocaleDateString());
 
         this.branchDictionary = new Map<string,statKeepers.INameCount>();
@@ -168,9 +168,10 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         }
         catch(ex)
         {
-            exception = " Error Retrieving Pull Requests -- " + ex.toString();
-            this.toastError(exception);
-            
+            if (ex instanceof Error) {
+                exception = " Error Retrieving Pull Requests -- " + ex.toString();
+                this.toastError(exception);
+            }
         }
 
     }
@@ -399,8 +400,10 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         }
         catch(ex)
         {
-            let exception = " Error Retrieving Pull Requests -- " + ex.toString();
-            this.toastError("Getting Rows: " + exception);
+            if (ex instanceof Error) {
+                let exception = " Error Retrieving Pull Requests -- " + ex.toString();
+                this.toastError("Getting Rows: " + exception);
+            }
         }
 
         return rows;
@@ -436,9 +439,9 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
     {
         let branchnameOnly = thisPR.targetRefName.replace("refs/heads/","")
         let branch = branchnameOnly;
-        if (branchnameOnly.split('/').length > 1)
+        if (branchnameOnly.split('release/').length > 1)
         {
-            branch = branchnameOnly.split('/')[0] + "/*";
+            branch = branchnameOnly.split('release/')[1];
         }
 
 
