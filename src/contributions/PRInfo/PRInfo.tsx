@@ -1,15 +1,16 @@
 import * as React from "react";
 import * as SDK from "azure-devops-extension-sdk";
 import * as API from "azure-devops-extension-api";
+import { CoreRestClient, WebApiTeam } from "azure-devops-extension-api/Core";
 import { GitServiceIds, IVersionControlRepositoryService } from "azure-devops-extension-api/Git/GitServices";
 import { Header, TitleSize } from "azure-devops-ui/Header";
 import { Page } from "azure-devops-ui/Page";
 import { GitRestClient, GitPullRequest, PullRequestStatus, GitPullRequestSearchCriteria, GitBranchStats } from "azure-devops-extension-api/Git";
 import { CommonServiceIds, getClient } from "azure-devops-extension-api";
 import { showRootComponent } from "../../Common";
-import { GitRepository, IdentityRefWithVote } from "azure-devops-extension-api/Git/Git";
+import { GitRepository, GitSuggestion, IdentityRefWithVote } from "azure-devops-extension-api/Git/Git";
 import {  fixedColumns,  ITableItem } from "./TableData";
-import { getPieChartInfo, getStackedBarChartInfo, stackedChartOptions,BarChartSize, getDurationBarChartInfo,getPullRequestsCompletedChartInfo } from "./ChartingInfo";
+import { getPieChartInfo, getStackedBarChartInfo, stackedChartOptions, BarChartSize, getDurationBarChartInfo,getPullRequestsCompletedChartInfo, ITeamBarChartData, ITeamChartData } from "./ChartingInfo";
 import { ArrayItemProvider } from "azure-devops-ui/Utilities/Provider";
 import { Card } from "azure-devops-ui/Card";
 import { Table } from "azure-devops-ui/Table";
@@ -18,12 +19,14 @@ import { Toast } from "azure-devops-ui/Toast";
 import { ZeroData, ZeroDataActionType } from "azure-devops-ui/ZeroData";
 import { Spinner, SpinnerSize } from "azure-devops-ui/Spinner";
 import * as statKeepers from "./statKeepers";
+import * as chartjs from "chart.js";
 import { Doughnut, Bar } from 'react-chartjs-2';
 import { Dropdown } from "azure-devops-ui/Dropdown";
 import { IListBoxItem } from "azure-devops-ui/ListBox";
 import { Observer } from "azure-devops-ui/Observer";
 import { DropdownSelection } from "azure-devops-ui/Utilities/DropdownSelection";
 import { tooltipString } from "azure-devops-ui/Utilities/Date";
+import { TeamMember } from "azure-devops-extension-api/WebApi/WebApi";
 
 
 interface IRepositoryServiceHubContentState {
@@ -48,21 +51,24 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
     private targetBranches:statKeepers.INameCount[] = [];
     private branchDictionary:Map<string, statKeepers.INameCount>;
 
+    private teamsDictionary:Map<string, statKeepers.ITeamWithMembers>;
+
     private approverList: ObservableValue<statKeepers.IReviewWithVote[]>;
     private approverDictionary:Map<string, statKeepers.IReviewWithVote>;
 
-
-    private approvalGroupList: statKeepers.IReviewWithVote[] =[];
-    private approvalGroupDictionary: Map<string, statKeepers.IReviewWithVote>;
+    private approvalTeamDictionary: Map<string, statKeepers.IReviewWithVote>;
+    private totalReviewsByTeam: statKeepers.IReviewWithVote[];
+    private reviewsByTeam: Map<string, statKeepers.IReviewWithVote[]>;
     public readonly noReviewerText:string ="No Reviewer";
 
     public myBarChartDims:BarChartSize;
     public PRCount:number = 0;
     //private completedDate:Date;
-    private readonly TOP500_Selection_ID = "3650";
+    private readonly TOP1000_Selection_ID = "36500";
     private readonly dayMilliseconds:number = ( 24 * 60 * 60 * 1000);
     private completedDate:ObservableValue<Date>;
     private displayText:ObservableValue<string>;
+    private prList: GitPullRequest[] = [];
     private rawPRCount:number= 0;
     private dateSelection:DropdownSelection;
     private mondayBeforeEarliestPR:Date = new Date();
@@ -73,7 +79,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         { text: "Last 30 Days", id: "30" },
         { text: "Last 60 Days", id: "60" },
         { text: "Last 90 Days", id: "90" },
-        { text: "Top 500 PRs", id: this.TOP500_Selection_ID }
+        { text: "Top 1000 PRs", id: this.TOP1000_Selection_ID}
 
     ];
 
@@ -94,9 +100,12 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         this.displayText =  new ObservableValue<string>("Completed Since " + this.completedDate.value.toLocaleDateString());
 
         this.branchDictionary = new Map<string,statKeepers.INameCount>();
-        this.approvalGroupDictionary = new Map<string,statKeepers.IReviewWithVote>();
+        this.approvalTeamDictionary = new Map<string,statKeepers.IReviewWithVote>();
+        this.totalReviewsByTeam = [];
+        this.reviewsByTeam = new Map<string, statKeepers.IReviewWithVote[]>();
         this.approverDictionary = new Map<string, statKeepers.IReviewWithVote>();
         this.approverList = new ObservableValue<statKeepers.IReviewWithVote[]>([]);
+        this.teamsDictionary = new Map<string, statKeepers.ITeamWithMembers>();
         this.initCollectionValues()
         
     }
@@ -104,13 +113,14 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
     {
         this.totalDuration = 0;
         this.PRCount = 0;
-        this.approvalGroupDictionary.clear();
+        this.approvalTeamDictionary.clear();
+        this.totalReviewsByTeam = [];
+        this.reviewsByTeam.clear();
         this.approverDictionary.clear();
         this.branchDictionary.clear();
-        this.approverDictionary.set(this.noReviewerText, {name:this.noReviewerText,value:0, notVote:0, voteApprove:0, voteReject:0, voteWait:0});
+        this.approverDictionary.set(this.noReviewerText, {name: this.noReviewerText, value: 0});
         this.approverList.value = [];
         this.targetBranches= [];
-        this.approvalGroupList= [];        
     }
 
 
@@ -177,9 +187,9 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
 
     private onSelect = (event: React.SyntheticEvent<HTMLElement>, item: IListBoxItem<{}>) => {
         this.completedDate.value = new Date((new Date().getTime() - (Number.parseInt(item.id) * this.dayMilliseconds)))
-        if(item.id == this.TOP500_Selection_ID)
+        if(item.id == this.TOP1000_Selection_ID)
         {
-            this.displayText.value = "Top 500";
+            this.displayText.value = "Top 1000";
         }
         else
         {
@@ -208,15 +218,20 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
     {
         if(this.state.repository)
         {
-            let prList:GitPullRequest[] = await this.retrievePullRequestRowsFromADO(this.state.repository.id);
-            prList = prList.sort(statKeepers.ComparePRClosedDate);
-            let prTableList = await this.getPullRequestRows(prList);
-            this.rawPRCount =  prList.length;
-            this.GetTableDataFunctions(prList);
+            if (this.teamsDictionary.size === 0) {
+                await this.retrieveAllMembers(this.state.repository);
+            }
+            if (this.prList.length === 0) {
+                let prList = await this.retrievePullRequestRowsFromADO(this.state.repository.id);
+                this.prList = prList.sort(statKeepers.ComparePRClosedDate);
+                this.rawPRCount =  this.prList.length;
+            }
+            // let prTableList = await this.getPullRequestRows(prList);
+            this.GetTableDataFunctions(this.prList);
             this.AssembleData();
             //this.mondayBeforeEarliestPR = statKeepers.getMondayBeforeEarliestPR(prList);
-            this.mondayBeforeEarliestPR = statKeepers.getMondayBeforeEarliestPR(prList);
-            this.durationSlices = statKeepers.getPRDurationSlices(prList);
+            this.mondayBeforeEarliestPR = statKeepers.getMondayBeforeEarliestPR(this.prList);
+            this.durationSlices = statKeepers.getPRDurationSlices(this.prList);
         }
         else
         {
@@ -266,12 +281,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                 
             })
 
-            this.approvalGroupDictionary.forEach((value)=>{
-                this.approvalGroupList.push(value);
-            });
-
             //sort the lists
-            this.approvalGroupList = this.approvalGroupList.sort(statKeepers.CompareReviewWithVoteByValue);
             this.approverList.value = tempapproverList.sort(statKeepers.CompareReviewWithVoteByValue);
             this.targetBranches = this.targetBranches.sort(statKeepers.CompareINameCountByValue);
 
@@ -304,14 +314,36 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         
     }
 
+    /// Retrieve all repository teams with associated members
+    public async retrieveAllMembers(repository: GitRepository) {
+        // TODO: improve this split to work with all sort of projects
+        const urlSplit = repository.url.split('/');
+        const projectName = urlSplit[urlSplit.length - 1];
+        let teams = await this.retrieveTeams(projectName);
+        await teams.forEach(async (team) => {
+            let members = (await this.retrieveTeamMembers(projectName, team)).map((member) => member.identity.displayName);
+            this.teamsDictionary.set(team.name, {name: team.name, members});
+        });
+    }
+
+    /// Retrieve the teams related to the project
+    public async retrieveTeams(projectId: string): Promise<WebApiTeam[]> {
+        const client = getClient(CoreRestClient);
+        return client.getTeams(projectId);
+    }
+
+    /// Retrieve the members of the team for a given project
+    public async retrieveTeamMembers(projectId: string, team: WebApiTeam): Promise<TeamMember[]> {
+        const client = getClient(CoreRestClient);
+        return client.getTeamMembersWithExtendedProperties(projectId, team.id);
+    }
 
     ///
     public async retrievePullRequestRowsFromADO(repositoryId:string): Promise<GitPullRequest[]>
     {
         let searchCriteria: GitPullRequestSearchCriteria = {status:PullRequestStatus.Completed, includeLinks:false, creatorId: "", reviewerId: "", repositoryId: "", sourceRefName: "",targetRefName:"", sourceRepositoryId: ""};
         const client = getClient(GitRestClient);
-        let prList = client.getPullRequests(repositoryId, searchCriteria,undefined,undefined,undefined,500);
-
+        let prList = client.getPullRequests(repositoryId, searchCriteria,undefined,undefined,undefined,1000);
         return prList;
     }
 
@@ -358,6 +390,8 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                         this.PRCount +=1;
                     }
                 });
+                // compute reviews by team
+                this.ConsolidateReviewsByTeam();
             }
             else{
                 this.setState({doneLoading:true});
@@ -370,6 +404,25 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         }
 
         return rows;
+    }
+
+    /// Consolidate the reviews by team to get reviews by team and reviews inside each teams
+    private ConsolidateReviewsByTeam() {
+        this.teamsDictionary.forEach((teamWithMembers) => {
+            let teamName = teamWithMembers.name;
+
+            let teamReviewsScores: statKeepers.IReviewWithVote[] = [];
+            let totalTeamReviewScore: statKeepers.IReviewWithVote = {name: teamName, value: 0};
+            teamWithMembers.members.forEach((member) => {
+                let memberScore: statKeepers.IReviewWithVote = this.approverDictionary.get(member) || {name: member, value: 0};
+                totalTeamReviewScore.value += memberScore.value;
+                teamReviewsScores.push(memberScore);
+            });
+            teamReviewsScores = teamReviewsScores.sort(statKeepers.CompareReviewWithVoteByValue)
+            this.totalReviewsByTeam.push(totalTeamReviewScore);
+            this.reviewsByTeam.set(teamName, teamReviewsScores);
+        });
+        this.totalReviewsByTeam = this.totalReviewsByTeam.sort(statKeepers.CompareReviewWithVoteByValue)
     }
 
     private AddPRDurationToTotalDuration(thisPR:GitPullRequest)
@@ -400,26 +453,21 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         }
         else
         {
-            this.branchDictionary.set(branch, {name: branch, value:1});
+            this.branchDictionary.set(branch, {name: branch, value: 1});
         }
     }
 
     private AddPRReviewerToStat(thisPR:GitPullRequest)
     {
-
         if(thisPR.reviewers.length > 0)
         {
             thisPR.reviewers.forEach(value =>{
                 if(!value.isContainer)
                 {
+                    // individual approver
                     this.AddPRIdentityToStat(value);
                 }
-                else
-                {
-                    this.AddPRApprovalGroupToStat(value);
-                }
             });
-            
         }
         else
         {
@@ -441,68 +489,14 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
             if(thisApprover)
             {
                 thisApprover.value = thisApprover.value + 1;
-                this.AddVoteCount(thisApprover,thisValue.vote);
                 this.approverDictionary.set(thisID, thisApprover);            
             }            
         }
         else {
             
-            let newVoteStat:statKeepers.IReviewWithVote = {name:thisName, value:1, voteApprove:0, voteReject:0, voteWait:0,notVote:0};
-            this.AddVoteCount(newVoteStat, thisValue.vote);
+            let newVoteStat:statKeepers.IReviewWithVote = {name: thisName, value: 1};
             this.approverDictionary.set(thisID, newVoteStat);
         }
-    }
-
-    private AddPRApprovalGroupToStat(thisValue:IdentityRefWithVote)
-    {
-
-        let thisID = thisValue.displayName;
-        let thisName = thisValue.displayName;
-        let nameParts = thisName.split("\\")
-        if(nameParts.length == 2)
-        {
-            thisName = nameParts[1];
-        }
-        if(this.approvalGroupDictionary.has(thisID))
-        {
-            thisValue.vote
-
-            let thisApprover = this.approvalGroupDictionary.get(thisID);
-            if(thisApprover)
-            {
-                thisApprover.value = thisApprover.value + 1;
-                this.AddVoteCount(thisApprover,thisValue.vote);
-                this.approvalGroupDictionary.set(thisID, thisApprover);          
-            
-            }            
-        }
-        else {
-            let newVoteStat:statKeepers.IReviewWithVote = {name:thisName, value:1, voteApprove:0, voteReject:0, voteWait:0,notVote:0};
-            this.AddVoteCount(newVoteStat, thisValue.vote);
-            this.approvalGroupDictionary.set(thisID, newVoteStat);
-            
-        }
-    }
-
-    private AddVoteCount(statItem:statKeepers.IReviewWithVote, vote:number )
-    {
-        if(vote == 10 || vote ==5)
-        {
-            statItem.voteApprove++;
-        }
-        else if (vote == 0)
-        {
-            statItem.notVote++;
-        }
-        else if (vote == -5)
-        {
-            statItem.voteWait++;
-        }
-        else if(vote == -10)
-        {
-            statItem.voteReject++;
-        }
-
     }
 
 
@@ -533,8 +527,32 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         let doneLoading = this.state.doneLoading;
         let targetBranchChartData = getPieChartInfo(this.targetBranches);
         let reviewerPieChartData = getPieChartInfo(this.approverList.value);
-        let groupBarChartData = getStackedBarChartInfo(this.approvalGroupList,"");
         let reviewerBarChartData = getStackedBarChartInfo(this.approverList.value, this.noReviewerText);
+        let smallNumberOfReviewers = reviewerPieChartData.labels.length < 7
+
+        // Global teams charts computation
+        let allTeamsBarChartData = getStackedBarChartInfo(this.totalReviewsByTeam);
+        let allTeamsPieChartData = getPieChartInfo(this.totalReviewsByTeam);
+
+        // Team charts computation
+        let teamsBarChartData: ITeamBarChartData[] = [];
+        let teamPieChartData: ITeamChartData[] = []
+        this.totalReviewsByTeam.forEach(totalReview => {
+            const team = totalReview.name;
+            const teamReviews = this.reviewsByTeam.get(totalReview.name);
+            if (teamReviews) {
+                teamsBarChartData.push({team, chart: getStackedBarChartInfo(teamReviews)});
+                teamPieChartData.push({team, chart: getPieChartInfo(teamReviews)});
+            }
+        });
+        let maximumVotes = Math.max(...teamsBarChartData.map(teamChart => Math.max(...teamChart.chart.datasets.map(dataSet => Math.max(...dataSet.data, 0)), 0)), 0);
+
+        let teamsBarChartOptions: chartjs.ChartOptions = {
+            scales: {
+              yAxes: [{stacked: true, ticks: {beginAtZero: true, max: maximumVotes}}],
+              xAxes: [{stacked: true}]
+            },
+          }
         let durationTrenChartData = getDurationBarChartInfo(this.durationSlices);
         let closedPRChartData = getPullRequestsCompletedChartInfo(this.durationSlices);
         if(doneLoading)
@@ -608,12 +626,14 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                         <Card titleProps={{ text:"Closed Pull Requests"}}>
                                                             <div className="flex-cell" style={{minWidth:"315px"}}>
                                                                 <table>
+                                                                    <tbody>
                                                                     <tr><td>
                                                                     <div style={{minWidth:"315px"}}><Bar data={closedPRChartData} height={200}></Bar></div>    
                                                                     </td></tr>
                                                                     <tr><td>
-                                                                    <div className="body-xs" style={{minWidth:"315px"}}>Trends for the last year (max last 500 PRs)</div>                                                                
+                                                                    <div className="body-xs" style={{minWidth:"315px"}}>Trends for the last year (max last 1000 PRs)</div>                                                                
                                                                     </td></tr>
+                                                                    </tbody>
                                                                 </table>
                                                             </div>
                                                         </Card>
@@ -648,12 +668,14 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                         <Card titleProps={{ text:"Open Time Trends (2 week interval)"}}>
                                                             <div className="flex-cell" style={{minWidth:"315px"}}>   
                                                             <table>
+                                                                    <tbody>
                                                                     <tr><td>
                                                                     <div className="flex-cell" style={{minWidth:"315px"}}><Bar data={durationTrenChartData} height={200}></Bar></div>   
                                                                     </td></tr>                                                                                                                       
                                                                     <tr><td>
-                                                                    <div className="flex-cell body-xs" style={{minWidth:"315px"}}>Trends for the last year (max last 500 PRs)</div>
-                                                                    </td></tr>                                                                
+                                                                    <div className="flex-cell body-xs" style={{minWidth:"315px"}}>Trends for the last year (max last 1000 PRs)</div>
+                                                                    </td></tr>   
+                                                                    </tbody>                                                             
                                                             </table>
                                                             </div>
                                                         </Card>
@@ -665,10 +687,13 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                     <div className="flex-row" style={{ flexWrap: "wrap" }}>
                                                         <table>
                                                             <thead>
+                                                                <tr>
                                                                 <td></td>
                                                                 <td style={{alignContent:"center", textAlign:"center", minWidth:"85px"}}>Count</td>
                                                                 <td style={{alignContent:"center", textAlign:"center", minWidth:"85px"}}>Percent</td>
+                                                                </tr>
                                                             </thead>
+                                                            <tbody>
                                                         {this.targetBranches.map((items, index) => (
                                                             <tr>
                                                                 <td className="body-m secondary-text">{items.name}</td>
@@ -676,6 +701,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                                 <td className="body-m primary-text flex-center" style={{alignContent:"center", textAlign:"center", minWidth:"85px"}}>{(items.value / this.PRCount * 100).toFixed(2)}%</td>
                                                             </tr>
                                                         ))}
+                                                            </tbody>
                                                         </table>
                                                         </div>
                                                     </Card>
@@ -698,11 +724,13 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                         <div className="flex-row" style={{ flexWrap: "wrap" }}>             
                                                         <table>                   
                                                             <thead>
+                                                                <tr>
                                                                 <td></td>
                                                                 <td style={{alignContent:"center", textAlign:"center", minWidth:"60px"}}>Count</td>
                                                                 <td style={{alignContent:"center", textAlign:"center", minWidth:"100px"}}>Percent of PRs</td>
-
+                                                                </tr>
                                                             </thead>
+                                                            <tbody>
                                                             <Observer selectedItem={this.approverList}>
                                                                 {(props: { selectedItem: statKeepers.IReviewWithVote[] }) => {
                                                                     return ( 
@@ -718,60 +746,76 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                                     )}
                                                                 }
                                                             </Observer>
+                                                            </tbody>
                                                         </table>
                                                         </div>                                
                                                     </Card>
                                                 </div>
-                                                <div className="flex-column" style={{minWidth:"500px"}}>
-                                                    <Card className="flex-grow">
-                                                    <div className="flex-row flex-grow flex-cell" style={{minWidth:"500px",height:"220"}}>
-                                                        <Doughnut  data={reviewerPieChartData} height={220}></Doughnut>
+                                                {/* Pie chart when there are not too many reviewers */}
+                                                {smallNumberOfReviewers &&
+                                                    <div className="flex-column" style={{minWidth:"500px"}}>
+                                                        <Card className="flex-grow">
+                                                            <div className="flex-row flex-grow flex-cell" style={{minWidth:"500px",height:"220"}}>
+                                                                <Doughnut  data={reviewerPieChartData} height={220}></Doughnut>
+                                                            </div>
+                                                        </Card>
                                                     </div>
-                                                    </Card>
-                                                </div>
+                                                }
                                                 <div className="flex-column">
                                                     <Card>
-                                                        <div className="flex-row" style={{minWidth:400, height:"300"}}>                                    
+                                                        <div className="flex-row" style={{minWidth:smallNumberOfReviewers ? 400 : 800, height:smallNumberOfReviewers ? 300 : 800}}>
                                                             <Bar data={reviewerBarChartData} options={stackedChartOptions} height={300}></Bar>                                    
                                                         </div>
                                                     </Card>
                                                 </div>
                                             </div>
 
+                                            {/* Bar charts by team */}
                                             <div className="flex-row">
-                                            <div className="flex-column" style={{minWidth:"350px"}}>
-                                                    <Card className="flex-grow" titleProps={{ text: "Approval by Team/Groups" }}>
-                                                        <div className="flex-row" style={{ flexWrap: "wrap" }}>             
-                                                        <table>                   
-                                                            <thead>
-                                                                <td></td>
-                                                                <td style={{alignContent:"center", textAlign:"center", minWidth:"60px"}}>Count</td>
-                                                                <td style={{alignContent:"center", textAlign:"center", minWidth:"100px"}}>Percent of PRs</td>
-
-                                                            </thead>
-                                                        {this.approvalGroupList.map((items, index) => (
-                                                            <tr>
-                                                                <td className="body-m secondary-text flex-center">{items.name}</td>
-                                                                <td className="body-m primary-text flex-center" style={{alignContent:"center", textAlign:"center", minWidth:"60px"}}>{items.value}</td>
-                                                                <td style={{alignContent:"center", textAlign:"center", minWidth:"100px"}}>{(items.value / this.PRCount * 100).toFixed(2)}%</td>
-
-                                                            </tr>                                    
-                                                        ))}
-                                                        </table>
-                                                        </div>                                
-                                                    </Card>
-                                                    
-                                                </div>
-                                                <Card>
-                                                    <div className="flex-row" style={{minWidth:this.myBarChartDims.width, height:"200"}}>
-                                                        <>
-                                                            <Bar data={groupBarChartData} options={stackedChartOptions} height={200}></Bar>
-                                                        </>
+                                                {teamsBarChartData.map(barChartData => (
+                                                    <div className="flex-column" style={{minWidth:"450px"}}>
+                                                        <Card className="flex-grow" titleProps={{ text: barChartData.team }}>
+                                                            <div className="flex-row" style={{minWidth:400, height:"300"}}>
+                                                                <Bar data={barChartData.chart} options={teamsBarChartOptions} height={300}></Bar>                                    
+                                                            </div>
+                                                        </Card>
                                                     </div>
-                                                </Card>
-                                                
+                                                ))}
                                             </div>
-                                            
+
+                                            {/* Pie charts by team when there are not too many teams */}
+                                            {teamPieChartData.length < 4 &&
+                                                <div className="flex-row">
+                                                    {teamPieChartData.map(pieChartData => (
+                                                        <div className="flex-column" style={{minWidth:"300px"}}>
+                                                            <Card className="flex-grow" titleProps={{ text: pieChartData.team }}>
+                                                                <div className="flex-row flex-grow flex-cell" style={{minWidth:"300px",height:"160"}}>
+                                                                    <Doughnut  data={pieChartData.chart} height={220}></Doughnut>
+                                                                </div>
+                                                            </Card>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            }
+
+                                            {/* Charts for global teams */}
+                                            <div className="flex-row">
+                                                <div className="flex-column" style={{minWidth:"450px"}}>
+                                                    <Card className="flex-grow" titleProps={{ text: "Total approvals per team" }}>
+                                                        <div className="flex-row" style={{minWidth:400, height:"300"}}>
+                                                            <Bar data={allTeamsBarChartData} options={stackedChartOptions} height={300}></Bar>                                    
+                                                        </div>
+                                                    </Card>
+                                                </div>
+
+                                                <div className="flex-column" style={{minWidth:"500px"}}>
+                                                    <Card className="flex-grow">
+                                                        <div className="flex-row flex-grow flex-cell" style={{minWidth:"500px",height:"220"}}>
+                                                            <Doughnut  data={allTeamsPieChartData} height={220}></Doughnut>
+                                                        </div>
+                                                    </Card>
+                                                </div>
+                                            </div>
                                             </div>
 
                     {isToastVisible && (
