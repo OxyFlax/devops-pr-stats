@@ -610,12 +610,14 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                         <Card titleProps={{ text:"Closed Pull Requests"}}>
                                                             <div className="flex-cell" style={{minWidth:"315px"}}>
                                                                 <table>
+                                                                    <tbody>
                                                                     <tr><td>
                                                                     <div style={{minWidth:"315px"}}><Bar data={closedPRChartData} height={200}></Bar></div>    
                                                                     </td></tr>
                                                                     <tr><td>
                                                                     <div className="body-xs" style={{minWidth:"315px"}}>Trends for the last year (max last 1000 PRs)</div>                                                                
                                                                     </td></tr>
+                                                                    </tbody>
                                                                 </table>
                                                             </div>
                                                         </Card>
@@ -650,12 +652,14 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                         <Card titleProps={{ text:"Open Time Trends (2 week interval)"}}>
                                                             <div className="flex-cell" style={{minWidth:"315px"}}>   
                                                             <table>
+                                                                    <tbody>
                                                                     <tr><td>
                                                                     <div className="flex-cell" style={{minWidth:"315px"}}><Bar data={durationTrenChartData} height={200}></Bar></div>   
                                                                     </td></tr>                                                                                                                       
                                                                     <tr><td>
                                                                     <div className="flex-cell body-xs" style={{minWidth:"315px"}}>Trends for the last year (max last 1000 PRs)</div>
                                                                     </td></tr>   
+                                                                    </tbody>                                                             
                                                             </table>
                                                             </div>
                                                         </Card>
@@ -667,10 +671,13 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                     <div className="flex-row" style={{ flexWrap: "wrap" }}>
                                                         <table>
                                                             <thead>
+                                                                <tr>
                                                                 <td></td>
                                                                 <td style={{alignContent:"center", textAlign:"center", minWidth:"85px"}}>Count</td>
                                                                 <td style={{alignContent:"center", textAlign:"center", minWidth:"85px"}}>Percent</td>
+                                                                </tr>
                                                             </thead>
+                                                            <tbody>
                                                         {this.targetBranches.map((items, index) => (
                                                             <tr>
                                                                 <td className="body-m secondary-text">{items.name}</td>
@@ -678,6 +685,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                                 <td className="body-m primary-text flex-center" style={{alignContent:"center", textAlign:"center", minWidth:"85px"}}>{(items.value / this.PRCount * 100).toFixed(2)}%</td>
                                                             </tr>
                                                         ))}
+                                                            </tbody>
                                                         </table>
                                                         </div>
                                                     </Card>
@@ -700,11 +708,13 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                         <div className="flex-row" style={{ flexWrap: "wrap" }}>             
                                                         <table>                   
                                                             <thead>
+                                                                <tr>
                                                                 <td></td>
                                                                 <td style={{alignContent:"center", textAlign:"center", minWidth:"60px"}}>Count</td>
                                                                 <td style={{alignContent:"center", textAlign:"center", minWidth:"100px"}}>Percent of PRs</td>
-
+                                                                </tr>
                                                             </thead>
+                                                            <tbody>
                                                             <Observer selectedItem={this.approverList}>
                                                                 {(props: { selectedItem: statKeepers.IReviewWithVote[] }) => {
                                                                     return ( 
@@ -720,6 +730,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                                     )}
                                                                 }
                                                             </Observer>
+                                                            </tbody>
                                                         </table>
                                                         </div>                                
                                                     </Card>
@@ -746,12 +757,14 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                         <div className="flex-row" style={{ flexWrap: "wrap" }}>             
                                                         <table>                   
                                                             <thead>
+                                                                <tr>
                                                                 <td></td>
                                                                 <td style={{alignContent:"center", textAlign:"center", minWidth:"60px"}}>Count</td>
                                                                 <td style={{alignContent:"center", textAlign:"center", minWidth:"100px"}}>Percent of PRs</td>
-
+                                                                </tr>
                                                             </thead>
                                                         {this.approvalGroupList.map((items, index) => (
+                                                            <tbody>
                                                             <tr>
                                                                 <td className="body-m secondary-text flex-center">{items.name}</td>
                                                                 <td className="body-m primary-text flex-center" style={{alignContent:"center", textAlign:"center", minWidth:"60px"}}>{items.value}</td>
@@ -759,6 +772,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
 
                                                             </tr>                                    
                                                         ))}
+                                                            </tbody>
                                                         </table>
                                                         </div>                                
                                                     </Card>
