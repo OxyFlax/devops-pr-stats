@@ -1,6 +1,4 @@
-import * as React from "react";
-import { GitPullRequest, PullRequestStatus } from "azure-devops-extension-api/Git";
-
+import { GitPullRequest } from "azure-devops-extension-api/Git";
 
 
 export interface IPRDuration
@@ -16,6 +14,11 @@ export interface INameCount
 {
     name:string,
     value:number
+}
+
+export interface ITeamWithMembers {
+    name: string,
+    members: string[]
 }
 
 export interface IReviewWithVote

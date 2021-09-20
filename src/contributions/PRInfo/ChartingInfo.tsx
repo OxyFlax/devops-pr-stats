@@ -1,4 +1,5 @@
 import * as statKeepers from "./statKeepers";
+import * as chartjs from "chart.js";
 
 export interface IChartDataset
 {
@@ -9,6 +10,11 @@ export interface IChartData
 {
     labels:string[],
     datasets:IChartDataset[]
+}
+
+export interface ITeamChartData {
+  team: string;
+  chart: IChartData;
 }
 
 export interface IBarChartDataset
@@ -30,13 +36,18 @@ export interface ILineChartDataset
     fill:boolean
 }
 
+export interface ITeamBarChartData {
+  team: string;
+  chart: IBarChartData;
+}
+
 export interface IBarChartData
 {
     labels:string[],
     datasets:IBarChartDataset[]
 }
 
-export var  stackedChartOptions = {
+export var stackedChartOptions: chartjs.ChartOptions = {
     scales: {
       yAxes: [
         {
@@ -48,7 +59,7 @@ export var  stackedChartOptions = {
       ],
       xAxes: [
         {
-          stacked: true,
+          stacked: true
         },
       ],
     },
@@ -116,7 +127,6 @@ export function getPieChartInfo(data:statKeepers.INameCount[]):IChartData
     return d;
 }
 
-
 export function getDurationBarChartInfo(data:statKeepers.IDurationSlice[]):IBarChartData
 {
   var d:IBarChartData = {labels:[], datasets:[]};
@@ -176,7 +186,7 @@ export function getPullRequestsCompletedChartInfo(data:statKeepers.IDurationSlic
 
 }
 
-export function getStackedBarChartInfo(data:statKeepers.IReviewWithVote[], exclude:string):IBarChartData
+export function getStackedBarChartInfo(data:statKeepers.IReviewWithVote[], exclude:string = ""):IBarChartData
 {
     var d:IBarChartData = {labels:[], datasets:[]};
     var countWaitVotes = statKeepers.getTotalCountForVoteWait(data);

@@ -35,7 +35,8 @@
     "react-scripts": "2.0.3"
   },
   "devDependencies": {
-    "@types/react": "~16.8.2",
+    "@types/chart.js": "^2.9.34",
+    "@types/react": "^17.0.21",
     "@types/react-dom": "~16.8.0",
     "@types/recharts": "^1.8.16",
     "base64-inline-loader": "^1.1.1",
