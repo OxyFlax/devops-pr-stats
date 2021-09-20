@@ -168,9 +168,10 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         }
         catch(ex)
         {
-            exception = " Error Retrieving Pull Requests -- " + ex.toString();
-            this.toastError(exception);
-            
+            if (ex instanceof Error) {
+                exception = " Error Retrieving Pull Requests -- " + ex.toString();
+                this.toastError(exception);
+            }
         }
 
     }
@@ -399,8 +400,10 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         }
         catch(ex)
         {
-            let exception = " Error Retrieving Pull Requests -- " + ex.toString();
-            this.toastError("Getting Rows: " + exception);
+            if (ex instanceof Error) {
+                let exception = " Error Retrieving Pull Requests -- " + ex.toString();
+                this.toastError("Getting Rows: " + exception);
+            }
         }
 
         return rows;
