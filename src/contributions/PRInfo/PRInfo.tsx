@@ -439,9 +439,9 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
     {
         let branchnameOnly = thisPR.targetRefName.replace("refs/heads/","")
         let branch = branchnameOnly;
-        if (branchnameOnly.split('/').length > 1)
+        if (branchnameOnly.split('release/').length > 1)
         {
-            branch = branchnameOnly.split('/')[0] + "/*";
+            branch = branchnameOnly.split('release/')[1];
         }
 
 
