@@ -63,6 +63,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
     private readonly dayMilliseconds:number = ( 24 * 60 * 60 * 1000);
     private completedDate:ObservableValue<Date>;
     private displayText:ObservableValue<string>;
+    private prList: GitPullRequest[] = [];
     private rawPRCount:number= 0;
     private dateSelection:DropdownSelection;
     private mondayBeforeEarliestPR:Date = new Date();
@@ -208,15 +209,17 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
     {
         if(this.state.repository)
         {
-            let prList:GitPullRequest[] = await this.retrievePullRequestRowsFromADO(this.state.repository.id);
-            prList = prList.sort(statKeepers.ComparePRClosedDate);
-            let prTableList = await this.getPullRequestRows(prList);
-            this.rawPRCount =  prList.length;
-            this.GetTableDataFunctions(prList);
+            if (this.prList.length === 0) {
+                let prList = await this.retrievePullRequestRowsFromADO(this.state.repository.id);
+                this.prList = prList.sort(statKeepers.ComparePRClosedDate);
+                this.rawPRCount =  this.prList.length;
+            }
+            // let prTableList = await this.getPullRequestRows(prList);
+            this.GetTableDataFunctions(this.prList);
             this.AssembleData();
             //this.mondayBeforeEarliestPR = statKeepers.getMondayBeforeEarliestPR(prList);
-            this.mondayBeforeEarliestPR = statKeepers.getMondayBeforeEarliestPR(prList);
-            this.durationSlices = statKeepers.getPRDurationSlices(prList);
+            this.mondayBeforeEarliestPR = statKeepers.getMondayBeforeEarliestPR(this.prList);
+            this.durationSlices = statKeepers.getPRDurationSlices(this.prList);
         }
         else
         {
