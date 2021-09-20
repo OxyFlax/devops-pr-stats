@@ -95,8 +95,8 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
 
         
         this.dateSelection = new DropdownSelection();
-        this.dateSelection.select(2);
-        this.completedDate = new ObservableValue<Date>(this.getDateForSelectionIndex(2));
+        this.dateSelection.select(1);
+        this.completedDate = new ObservableValue<Date>(this.getDateForSelectionIndex(1));
         this.displayText =  new ObservableValue<string>("Completed Since " + this.completedDate.value.toLocaleDateString());
 
         this.branchDictionary = new Map<string,statKeepers.INameCount>();
