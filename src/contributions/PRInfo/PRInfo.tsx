@@ -118,7 +118,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         this.reviewsByTeam.clear();
         this.approverDictionary.clear();
         this.branchDictionary.clear();
-        this.approverDictionary.set(this.noReviewerText, {name:this.noReviewerText,value:0, notVote:0, voteApprove:0, voteReject:0, voteWait:0});
+        this.approverDictionary.set(this.noReviewerText, {name: this.noReviewerText, value: 0});
         this.approverList.value = [];
         this.targetBranches= [];
     }
@@ -412,9 +412,9 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
             let teamName = teamWithMembers.name;
 
             let teamReviewsScores: statKeepers.IReviewWithVote[] = [];
-            let totalTeamReviewScore: statKeepers.IReviewWithVote = {name:teamName, value:0, voteApprove:0, voteReject:0, voteWait:0,notVote:0};
+            let totalTeamReviewScore: statKeepers.IReviewWithVote = {name: teamName, value: 0};
             teamWithMembers.members.forEach((member) => {
-                let memberScore: statKeepers.IReviewWithVote = this.approverDictionary.get(member) || {name:member, value:0, voteApprove:0, voteReject:0, voteWait:0, notVote:0};
+                let memberScore: statKeepers.IReviewWithVote = this.approverDictionary.get(member) || {name: member, value: 0};
                 totalTeamReviewScore.value += memberScore.value;
                 teamReviewsScores.push(memberScore);
             });
@@ -453,7 +453,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         }
         else
         {
-            this.branchDictionary.set(branch, {name: branch, value:1});
+            this.branchDictionary.set(branch, {name: branch, value: 1});
         }
     }
 
@@ -489,37 +489,14 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
             if(thisApprover)
             {
                 thisApprover.value = thisApprover.value + 1;
-                this.AddVoteCount(thisApprover,thisValue.vote);
                 this.approverDictionary.set(thisID, thisApprover);            
             }            
         }
         else {
             
-            let newVoteStat:statKeepers.IReviewWithVote = {name:thisName, value:1, voteApprove:0, voteReject:0, voteWait:0,notVote:0};
-            this.AddVoteCount(newVoteStat, thisValue.vote);
+            let newVoteStat:statKeepers.IReviewWithVote = {name: thisName, value: 1};
             this.approverDictionary.set(thisID, newVoteStat);
         }
-    }
-
-    private AddVoteCount(statItem:statKeepers.IReviewWithVote, vote:number )
-    {
-        if(vote == 10 || vote ==5)
-        {
-            statItem.voteApprove++;
-        }
-        else if (vote == 0)
-        {
-            statItem.notVote++;
-        }
-        else if (vote == -5)
-        {
-            statItem.voteWait++;
-        }
-        else if(vote == -10)
-        {
-            statItem.voteReject++;
-        }
-
     }
 
 

@@ -189,32 +189,17 @@ export function getPullRequestsCompletedChartInfo(data:statKeepers.IDurationSlic
 export function getStackedBarChartInfo(data:statKeepers.IReviewWithVote[], exclude:string = ""):IBarChartData
 {
     var d:IBarChartData = {labels:[], datasets:[]};
-    var countWaitVotes = statKeepers.getTotalCountForVoteWait(data);
-    var countRejectVotes = statKeepers.getTotalCountForVoteReject(data);
-    var approveDS:IBarChartDataset = {label:"Approve Votes", backgroundColor:ApproveChartColor, data:[],type:"bar", fill:true};
-    var rejectDS:IBarChartDataset = {label:"Reject Votes", backgroundColor:RejectVoteChartColor, data:[], type:"bar", fill:true};
-    var noVoteDS:IBarChartDataset = {label:"Did Not Vote", backgroundColor:NoVoteChartColor, data:[], type:"bar", fill:true};
-    var waitVoteDS:IBarChartDataset = {label:"Waiting For Author", backgroundColor:WaitVoteChartColor, data:[], type:"bar", fill:true};
+    var approveDS:IBarChartDataset = {label:"Approve Votes", backgroundColor:ApproveChartColor, data:[], type:"bar", fill:true};
 
     data.forEach((thisData)=>{
         if(thisData.name != exclude)
         {
             d.labels.push(thisData.name);
-            approveDS.data.push(thisData.voteApprove);            
-            noVoteDS.data.push(thisData.notVote);
-            if(countWaitVotes > 0)
-              { waitVoteDS.data.push(thisData.voteWait); }
-            if(countRejectVotes > 0)            
-              { rejectDS.data.push(thisData.voteReject); }
+            approveDS.data.push(thisData.value);
         }
     });
 
-    d.datasets.push(noVoteDS);
     d.datasets.push(approveDS);
-    if(countWaitVotes > 0)
-      { d.datasets.push(waitVoteDS); }
-    if(countRejectVotes > 0) 
-      {d.datasets.push(rejectDS);}
     
     return d;
 }

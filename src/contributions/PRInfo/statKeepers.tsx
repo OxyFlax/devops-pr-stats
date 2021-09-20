@@ -24,11 +24,7 @@ export interface ITeamWithMembers {
 export interface IReviewWithVote
 {
     name:string,
-    value:number,
-    voteApprove:number,
-    voteReject:number,
-    notVote:number,
-    voteWait:number
+    value:number
 }
 
 export interface IDurationSlice
@@ -88,25 +84,6 @@ export function getMillisecondsToTime(duration:number):IPRDuration {
           milliseconds
         }; 
 
-  }
-  
-
-  export function getTotalCountForVoteReject(reviews:IReviewWithVote[]):number
-  {
-      let total:number =0;
-      reviews.forEach(r=>{
-          total += r.voteReject;
-      });
-      return total;
-  }
-
-  export function getTotalCountForVoteWait(reviews:IReviewWithVote[]):number
-  {
-      let total:number =0;
-      reviews.forEach(r=>{
-          total += r.voteWait;
-      });
-      return total;
   }
 
   export function getDateofEarliestPR(pullRequests:GitPullRequest[]):Date
