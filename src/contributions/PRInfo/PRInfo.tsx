@@ -59,7 +59,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
     public myBarChartDims:BarChartSize;
     public PRCount:number = 0;
     //private completedDate:Date;
-    private readonly TOP500_Selection_ID = "3650";
+    private readonly TOP1000_Selection_ID = "36500";
     private readonly dayMilliseconds:number = ( 24 * 60 * 60 * 1000);
     private completedDate:ObservableValue<Date>;
     private displayText:ObservableValue<string>;
@@ -74,7 +74,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         { text: "Last 30 Days", id: "30" },
         { text: "Last 60 Days", id: "60" },
         { text: "Last 90 Days", id: "90" },
-        { text: "Top 500 PRs", id: this.TOP500_Selection_ID }
+        { text: "Top 1000 PRs", id: this.TOP1000_Selection_ID}
 
     ];
 
@@ -178,9 +178,9 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
 
     private onSelect = (event: React.SyntheticEvent<HTMLElement>, item: IListBoxItem<{}>) => {
         this.completedDate.value = new Date((new Date().getTime() - (Number.parseInt(item.id) * this.dayMilliseconds)))
-        if(item.id == this.TOP500_Selection_ID)
+        if(item.id == this.TOP1000_Selection_ID)
         {
-            this.displayText.value = "Top 500";
+            this.displayText.value = "Top 1000";
         }
         else
         {
@@ -313,8 +313,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
     {
         let searchCriteria: GitPullRequestSearchCriteria = {status:PullRequestStatus.Completed, includeLinks:false, creatorId: "", reviewerId: "", repositoryId: "", sourceRefName: "",targetRefName:"", sourceRepositoryId: ""};
         const client = getClient(GitRestClient);
-        let prList = client.getPullRequests(repositoryId, searchCriteria,undefined,undefined,undefined,500);
-
+        let prList = client.getPullRequests(repositoryId, searchCriteria,undefined,undefined,undefined,1000);
         return prList;
     }
 
@@ -615,7 +614,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                                     <div style={{minWidth:"315px"}}><Bar data={closedPRChartData} height={200}></Bar></div>    
                                                                     </td></tr>
                                                                     <tr><td>
-                                                                    <div className="body-xs" style={{minWidth:"315px"}}>Trends for the last year (max last 500 PRs)</div>                                                                
+                                                                    <div className="body-xs" style={{minWidth:"315px"}}>Trends for the last year (max last 1000 PRs)</div>                                                                
                                                                     </td></tr>
                                                                 </table>
                                                             </div>
@@ -655,8 +654,8 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                                     <div className="flex-cell" style={{minWidth:"315px"}}><Bar data={durationTrenChartData} height={200}></Bar></div>   
                                                                     </td></tr>                                                                                                                       
                                                                     <tr><td>
-                                                                    <div className="flex-cell body-xs" style={{minWidth:"315px"}}>Trends for the last year (max last 500 PRs)</div>
-                                                                    </td></tr>                                                                
+                                                                    <div className="flex-cell body-xs" style={{minWidth:"315px"}}>Trends for the last year (max last 1000 PRs)</div>
+                                                                    </td></tr>   
                                                             </table>
                                                             </div>
                                                         </Card>
