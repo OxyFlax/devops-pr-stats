@@ -1,22 +1,20 @@
 import * as React from "react";
 import * as SDK from "azure-devops-extension-sdk";
-import * as API from "azure-devops-extension-api";
 import { CoreRestClient, WebApiTeam } from "azure-devops-extension-api/Core";
 import { GitServiceIds, IVersionControlRepositoryService } from "azure-devops-extension-api/Git/GitServices";
 import { Header, TitleSize } from "azure-devops-ui/Header";
 import { Page } from "azure-devops-ui/Page";
-import { GitRestClient, GitPullRequest, PullRequestStatus, GitPullRequestSearchCriteria, GitBranchStats } from "azure-devops-extension-api/Git";
+import { GitRestClient, GitPullRequest, PullRequestStatus, GitPullRequestSearchCriteria } from "azure-devops-extension-api/Git";
 import { CommonServiceIds, getClient, IProjectPageService } from "azure-devops-extension-api";
 import { showRootComponent } from "../../Common";
-import { GitRepository, GitSuggestion, IdentityRefWithVote } from "azure-devops-extension-api/Git/Git";
-import { fixedColumns, ITableItem } from "./TableData";
+import { GitRepository, IdentityRefWithVote } from "azure-devops-extension-api/Git/Git";
+import { ITableItem } from "./TableData";
 import { getPieChartInfo, getStackedBarChartInfo, stackedChartOptions, BarChartSize, getDurationBarChartInfo, getPullRequestsCompletedChartInfo, ITeamBarChartData, ITeamChartData } from "./ChartingInfo";
 import { ArrayItemProvider } from "azure-devops-ui/Utilities/Provider";
 import { Card } from "azure-devops-ui/Card";
-import { Table } from "azure-devops-ui/Table";
 import { ObservableArray, ObservableValue } from "azure-devops-ui/Core/Observable";
 import { Toast } from "azure-devops-ui/Toast";
-import { ZeroData, ZeroDataActionType } from "azure-devops-ui/ZeroData";
+import { ZeroData } from "azure-devops-ui/ZeroData";
 import { Spinner, SpinnerSize } from "azure-devops-ui/Spinner";
 import * as statKeepers from "./statKeepers";
 import * as chartjs from "chart.js";
@@ -25,7 +23,6 @@ import { Dropdown } from "azure-devops-ui/Dropdown";
 import { IListBoxItem } from "azure-devops-ui/ListBox";
 import { Observer } from "azure-devops-ui/Observer";
 import { DropdownSelection } from "azure-devops-ui/Utilities/DropdownSelection";
-import { tooltipString } from "azure-devops-ui/Utilities/Date";
 import { TeamMember } from "azure-devops-extension-api/WebApi/WebApi";
 
 interface IRepositoryServiceHubContentState {
@@ -38,8 +35,6 @@ interface IRepositoryServiceHubContentState {
 }
 
 class RepositoryServiceHubContent extends React.Component<{}, IRepositoryServiceHubContentState> {
-    private tableArrayData: ArrayItemProvider<ITableItem>;
-
     private itemProvider: ObservableArray<ITableItem | ObservableValue<ITableItem | undefined>>;
     private toastRef: React.RefObject<Toast> = React.createRef<Toast>();
     private totalDuration: number = 0;
@@ -59,7 +54,6 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
 
     public myBarChartDims: BarChartSize;
     public PRCount: number = 0;
-    //private completedDate:Date;
     private readonly TOP1000_Selection_ID = "36500";
     private readonly dayMilliseconds: number = (24 * 60 * 60 * 1000);
     private completedDate: ObservableValue<Date>;
@@ -67,7 +61,6 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
     private prList: GitPullRequest[] = [];
     private rawPRCount: number = 0;
     private dateSelection: DropdownSelection;
-    private mondayBeforeEarliestPR: Date = new Date();
     private durationSlices: statKeepers.IDurationSlice[] = [];
     private dateSelectionChoices = [
         { text: "Last 7 Days", id: "7" },
@@ -80,7 +73,6 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
 
     constructor(props: {}) {
         super(props);
-        this.tableArrayData = this.getTableItemProvider([]);
         this.itemProvider = new ObservableArray<ITableItem | ObservableValue<ITableItem | undefined>>(this.getTableItemProvider([]).value);
         this.state = { repository: null, exception: "", isToastFadingOut: false, isToastVisible: false, foundCompletedPRs: true, doneLoading: false };
         this.durationDisplayObject = { days: 0, hours: 0, minutes: 0, seconds: 0, milliseconds: 0 };
@@ -129,16 +121,11 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         await SDK.init();
         try {
             const repoSvc = await SDK.getService<IVersionControlRepositoryService>(GitServiceIds.VersionControlRepositoryService);
-            const wiSvc = await SDK.getService(CommonServiceIds.LocationService)
             var repository = await repoSvc.getCurrentGitRepository();
             var exception = "";
-            //var count:number = -1;
-            let prTableList: ITableItem[] = []
-            let prTableArrayObj: ArrayItemProvider<ITableItem> = this.getTableItemProvider([]);
 
             if (repository) {
                 this.setState({ repository: repository });
-                //let prList:GitPullRequest[] = await this.retrievePullRequestRowsFromADO(repository.id);
                 await this.LoadData();
 
                 if (this.rawPRCount < 1) {
@@ -154,13 +141,6 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                 exception = " Error Retrieving Pull Requests -- " + ex.toString();
                 this.toastError(exception);
             }
-        }
-    }
-
-    public async GetGitAPIClient(repositoryID: string) {
-        if (repositoryID) {
-            let searchCriteria: GitPullRequestSearchCriteria = { status: PullRequestStatus.Completed, includeLinks: true, creatorId: "", reviewerId: "", repositoryId: repositoryID, sourceRefName: "", targetRefName: "", sourceRepositoryId: repositoryID };
-            let prList: GitPullRequest[] = await API.getClient(GitRestClient).getPullRequests(repositoryID, searchCriteria);
         }
     }
 
@@ -198,11 +178,8 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                 this.prList = prList.sort(statKeepers.ComparePRClosedDate);
                 this.rawPRCount = this.prList.length;
             }
-            // let prTableList = await this.getPullRequestRows(prList);
             this.GetTableDataFunctions(this.prList);
             this.AssembleData();
-            //this.mondayBeforeEarliestPR = statKeepers.getMondayBeforeEarliestPR(prList);
-            this.mondayBeforeEarliestPR = statKeepers.getMondayBeforeEarliestPR(this.prList);
             this.durationSlices = statKeepers.getPRDurationSlices(this.prList);
         }
         else {
@@ -320,10 +297,6 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                 this.initCollectionValues();
                 prList.forEach((value) => {
                     if (value.closedDate >= this.completedDate.value) {
-                        let reviewerName = "-- no reviewers --"
-                        if (value.reviewers.length > 0) {
-                            reviewerName = value.reviewers[0].displayName;
-                        }
                         let PROpenDuration = value.closedDate.valueOf() - value.creationDate.valueOf();
 
                         let thisPR: ITableItem = { createdBy: value.createdBy.displayName, prCreatedDate: value.creationDate, prCompleteDate: value.closedDate, sourceBranch: value.sourceRefName, targetBranch: value.targetRefName, id: value.pullRequestId.toString(), prOpenTime: PROpenDuration, status: value.status.toString(), reviewerCount: value.reviewers.length };
@@ -336,7 +309,6 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                         rows.push(thisPR);
                         this.AddRowItem(thisPR);
 
-                        //this.AddRowItem(thisPR);
                         if (!this.state.foundCompletedPRs) {
                             this.setState({ foundCompletedPRs: true, repository: this.state.repository, isToastFadingOut: false, isToastVisible: false, exception: "", doneLoading: true });
 
@@ -503,7 +475,6 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                             }
                             imageAltText="Bars"
                             imagePath={"./emptyPRList.png"}
-
                         />
                     </Page>
                 );
@@ -526,12 +497,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                             onSelect={this.onSelect}
                                         />
                                     </span>
-                                    <span className="flex-cell">
-                                    </span>
                                 </div>
-                            </div>
-                            <div className="flex-row">
-                                <br></br>
                             </div>
                             <div className="flex-row">
                                 <div className="flex-column" style={{ minWidth: "350px" }}>
@@ -638,8 +604,6 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                         </div>
                                     </Card>
                                 </div>
-                            </div>
-                            <div className="flex-row">
                             </div>
                             <div className="flex-row">
                                 <div className="flex-column" style={{ minWidth: "350px" }}>

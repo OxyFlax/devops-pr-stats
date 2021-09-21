@@ -50,8 +50,6 @@ export function ComparePRClosedDate(pr1: GitPullRequest, pr2: GitPullRequest) {
 }
 
 export function getMillisecondsToTime(duration: number): IPRDuration {
-    //let duration:number = endTime.valueOf() - startTime.valueOf();
-
     let remain = duration
 
     let days = Math.floor(remain / (1000 * 60 * 60 * 24))
@@ -112,20 +110,15 @@ export function getPRDurationSlices(pullRequests: GitPullRequest[]): IDurationSl
     let mathDate: Date = new Date(sliceDate);
     let runningTotalCount: number = 0;
     let runningTotalMinutes: number = 0;
-    //console.log("monday before earliest PR: " + sliceDate.toLocaleString());
-    //console.log("PR NDX " + ndx.toString());
     if (ndx > 0) {
         let newSlice: IDurationSlice = { startDate: sliceDate, PRCount: 0, minutes: 0, runningTotalCount: 0, runningTotalMinutes: 0 };
         let nextSliceDate: Date = new Date(mathDate.setDate((mathDate.getDate() + 14)));
-        //console.log("newsliceDate : " + sliceDate.toLocaleString() + "   next sliceDate : " + nextSliceDate.toLocaleString());
         do {
             let addedSlice: boolean = false;
             let isthisPRinSlice: boolean = false;
             let thisPR: GitPullRequest = pullRequests[ndx];
-            //console.log(thisPR.closedDate.toLocaleString());
             if (thisPR.closedDate > nextSliceDate) // we have a PR that goes to a future slice, we're done with the current slice.
             {
-                //console.log("new slice push");
                 slices.push({ startDate: newSlice.startDate, minutes: newSlice.minutes, PRCount: newSlice.PRCount, runningTotalCount: runningTotalCount, runningTotalMinutes: runningTotalMinutes });
                 sliceDate = new Date(nextSliceDate);
 
@@ -133,10 +126,8 @@ export function getPRDurationSlices(pullRequests: GitPullRequest[]): IDurationSl
                 mathDate = new Date(sliceDate);
                 nextSliceDate = new Date(mathDate.setDate((mathDate.getDate() + 14)));
                 addedSlice = true;
-                //console.log("newsliceDate : " + sliceDate.toLocaleString() + "   next sliceDate : " + nextSliceDate.toLocaleString());
             }
             if (thisPR.closedDate > sliceDate && thisPR.closedDate < nextSliceDate) {
-                // console.log("adding this PR to the slice --" + thisPR.pullRequestId.toString());
                 newSlice.PRCount += 1;
                 let thisPRDuration = Math.floor((thisPR.closedDate.valueOf() - thisPR.creationDate.valueOf()) / 60000);
                 newSlice.minutes += thisPRDuration;

@@ -1,23 +1,10 @@
 import * as React from "react";
 import { ObservableValue } from "azure-devops-ui/Core/Observable";
-import { ISimpleListCell } from "azure-devops-ui/List";
-import { IStatusProps, Status, Statuses, StatusSize } from "azure-devops-ui/Status";
-import {
-    ColumnMore,
-    ColumnSelect,
-    ISimpleTableCell,
-    ITableColumn,
-    renderSimpleCell,
-    TableColumnLayout,
-    TableCell,
-    SimpleTableCell,
-    TwoLineTableCell
-} from "azure-devops-ui/Table";
+import { Status, Statuses, StatusSize } from "azure-devops-ui/Status";
+import { ITableColumn, TableCell, TwoLineTableCell} from "azure-devops-ui/Table";
 import { css } from "azure-devops-ui/Util";
-import { ArrayItemProvider } from "azure-devops-ui/Utilities/Provider";
 import { Ago } from "azure-devops-ui/Ago";
 import { Duration } from "azure-devops-ui/Duration";
-import { Tooltip } from "azure-devops-ui/TooltipEx";
 import { Icon, IIconProps } from "azure-devops-ui/Icon";
 
 export const fixedColumns = [
