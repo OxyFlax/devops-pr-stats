@@ -32,6 +32,8 @@ interface IRepositoryServiceHubContentState {
     isToastFadingOut: boolean;
     foundCompletedPRs: boolean;
     doneLoading: boolean;
+    teamsChecked: Map<string, boolean>;
+    allTeamsChecked: boolean;
 }
 
 class RepositoryServiceHubContent extends React.Component<{}, IRepositoryServiceHubContentState> {
@@ -74,7 +76,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
     constructor(props: {}) {
         super(props);
         this.itemProvider = new ObservableArray<ITableItem | ObservableValue<ITableItem | undefined>>(this.getTableItemProvider([]).value);
-        this.state = { repository: null, exception: "", isToastFadingOut: false, isToastVisible: false, foundCompletedPRs: true, doneLoading: false };
+        this.state = { repository: null, exception: "", isToastFadingOut: false, isToastVisible: false, foundCompletedPRs: true, doneLoading: false, teamsChecked: new Map(), allTeamsChecked: true };
         this.durationDisplayObject = { days: 0, hours: 0, minutes: 0, seconds: 0, milliseconds: 0 };
 
         this.myBarChartDims = { height: 250, width: 500 };
@@ -187,6 +189,34 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         }
     }
 
+    /// Handle check/uncheck the box for specific team
+    private handleCheckedTeamsChange = (e: { target: { name: string; checked: boolean; }; }) => {
+        const item = e.target.name;
+        const isChecked = e.target.checked;
+        this.setState(prevState => {
+            let isAllTeamsChecked = true;
+            const newTeamsChecked = prevState.teamsChecked.set(item, isChecked);
+            newTeamsChecked.forEach(value => {
+                isAllTeamsChecked = isAllTeamsChecked && value;
+            });
+            return {
+                teamsChecked: newTeamsChecked,
+                allTeamsChecked: isAllTeamsChecked
+            }
+        });
+    };
+
+    /// Handle the check/uncheck the box of all teams
+    private handleCheckedAllTeamsChange = (e: { target: { checked: boolean; }; }) => {
+        const newTeamsChecked: Map<string, boolean> = new Map();
+        const isChecked = e.target.checked;
+        this.state.teamsChecked.forEach((_, teamName) => newTeamsChecked.set(teamName, isChecked));
+        this.setState(_ => ({
+            teamsChecked: newTeamsChecked,
+            allTeamsChecked: isChecked
+        }));
+    }
+
     private async handleDateChange() {
         this.setState({ doneLoading: false });
         if (this.state.repository) {
@@ -262,10 +292,13 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
             projectName = urlSplit.find(split => !!split && split !== hostName && split !== "_git") || urlSplit[urlSplit.length - 1];
         }
         let teams = await this.retrieveTeams(projectName);
+        let teamsChecked: Map<string, boolean> = new Map();
         await teams.forEach(async (team) => {
             let members = (await this.retrieveTeamMembers(projectName!, team)).map((member) => member.identity.displayName);
             this.teamsDictionary.set(team.name, { name: team.name, members });
+            teamsChecked.set(team.name, true);
         });
+        this.setState({ teamsChecked })
     }
 
     /// Retrieve the teams related to the project
@@ -430,19 +463,26 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
         let isToastVisible = this.state.isToastVisible;
         let foundCompletedPRs = this.state.foundCompletedPRs;
         let doneLoading = this.state.doneLoading;
+
+        let teamNames: string[] = []
+        this.state.teamsChecked.forEach((_, teamName) => {
+            teamNames.push(teamName);
+        });
+
         let targetBranchChartData = getPieChartInfo(this.targetBranches);
         let reviewerPieChartData = getPieChartInfo(this.approverList.value);
         let reviewerBarChartData = getStackedBarChartInfo(this.approverList.value, this.noReviewerText);
         let smallNumberOfReviewers = reviewerPieChartData.labels.length < 7
 
         // Global teams charts computation
-        let allTeamsBarChartData = getStackedBarChartInfo(this.totalReviewsByTeam);
-        let allTeamsPieChartData = getPieChartInfo(this.totalReviewsByTeam);
+        let filteredReviewsByTeam = this.totalReviewsByTeam.filter(teamTotalReviews => !!this.state.teamsChecked.get(teamTotalReviews.name))
+        let allTeamsBarChartData = getStackedBarChartInfo(filteredReviewsByTeam);
+        let allTeamsPieChartData = getPieChartInfo(filteredReviewsByTeam);
 
         // Team charts computation
         let teamsBarChartData: ITeamBarChartData[] = [];
         let teamPieChartData: ITeamChartData[] = []
-        this.totalReviewsByTeam.forEach(totalReview => {
+        filteredReviewsByTeam.forEach(totalReview => {
             const team = totalReview.name;
             const teamReviews = this.reviewsByTeam.get(totalReview.name);
             if (teamReviews) {
@@ -486,7 +526,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                         <div>
                             <div className="flex-row">
                                 <div className="flex-column">
-                                    <span className="flex-cell">
+                                    <span className="flex-cell" style={{ minWidth: "max-content" }}>
                                         Show Pull Requests Completed within: <span style={{ minWidth: "5px" }} />
                                         <Dropdown
                                             ariaLabel="Basic"
@@ -499,6 +539,34 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                     </span>
                                 </div>
                             </div>
+                            {/* Select teams to display in the statistics */}
+                            {teamNames.length > 1 &&
+                                <div className="flex-row">
+                                    <div className="flex-column">
+                                        <span className="flex-cell" style={{ minWidth: "max-content" }}>
+                                            Select teams for statistics: <span style={{ minWidth: "5px" }} />
+                                            <input
+                                                type="checkbox"
+                                                checked={!!this.state.allTeamsChecked}
+                                                onChange={this.handleCheckedAllTeamsChange}
+                                            />
+                                            All teams
+                                            {teamNames.map(teamName => (
+                                                <div>
+                                                    <input
+                                                        type="checkbox"
+                                                        name={teamName}
+                                                        checked={!!this.state.teamsChecked.get(teamName)}
+                                                        onChange={this.handleCheckedTeamsChange}
+                                                    />
+                                                    {teamName}
+                                                    <span style={{ minWidth: "5px" }} />
+                                                </div>
+                                            ))}
+                                        </span>
+                                    </div>
+                                </div>
+                            }
                             <div className="flex-row">
                                 <div className="flex-column" style={{ minWidth: "350px" }}>
                                     <div className="flex-row">
@@ -659,20 +727,22 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                             </div>
 
                             {/* Bar charts by team */}
-                            <div className="flex-row">
-                                {teamsBarChartData.map(barChartData => (
-                                    <div className="flex-column" style={{ minWidth: "450px" }}>
-                                        <Card className="flex-grow" titleProps={{ text: barChartData.team }}>
-                                            <div className="flex-row" style={{ minWidth: 400, height: "300" }}>
-                                                <Bar data={barChartData.chart} options={teamsBarChartOptions} height={300}></Bar>
-                                            </div>
-                                        </Card>
-                                    </div>
-                                ))}
-                            </div>
+                            {allTeamsBarChartData.labels.length &&
+                                <div className="flex-row">
+                                    {teamsBarChartData.map(barChartData => (
+                                        <div className="flex-column" style={{ minWidth: "450px" }}>
+                                            <Card className="flex-grow" titleProps={{ text: barChartData.team }}>
+                                                <div className="flex-row" style={{ minWidth: 400, height: "300" }}>
+                                                    <Bar data={barChartData.chart} options={teamsBarChartOptions} height={300}></Bar>
+                                                </div>
+                                            </Card>
+                                        </div>
+                                    ))}
+                                </div>
+                            }
 
                             {/* Pie charts by team when there are not too many teams */}
-                            {teamPieChartData.length < 4 &&
+                            {allTeamsBarChartData.labels.length && teamPieChartData.length < 4 &&
                                 <div className="flex-row">
                                     {teamPieChartData.map(pieChartData => (
                                         <div className="flex-column" style={{ minWidth: "300px" }}>
@@ -687,23 +757,25 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                             }
 
                             {/* Charts for global teams */}
-                            <div className="flex-row">
-                                <div className="flex-column" style={{ minWidth: "450px" }}>
-                                    <Card className="flex-grow" titleProps={{ text: "Total approvals per team" }}>
-                                        <div className="flex-row" style={{ minWidth: 400, height: "300" }}>
-                                            <Bar data={allTeamsBarChartData} options={stackedChartOptions} height={300}></Bar>
-                                        </div>
-                                    </Card>
-                                </div>
+                            {allTeamsBarChartData.labels.length > 1 &&
+                                <div className="flex-row">
+                                    <div className="flex-column" style={{ minWidth: "450px" }}>
+                                        <Card className="flex-grow" titleProps={{ text: "Total approvals per team" }}>
+                                            <div className="flex-row" style={{ minWidth: 400, height: "300" }}>
+                                                <Bar data={allTeamsBarChartData} options={stackedChartOptions} height={300}></Bar>
+                                            </div>
+                                        </Card>
+                                    </div>
 
-                                <div className="flex-column" style={{ minWidth: "500px" }}>
-                                    <Card className="flex-grow">
-                                        <div className="flex-row flex-grow flex-cell" style={{ minWidth: "500px", height: "220" }}>
-                                            <Doughnut data={allTeamsPieChartData} height={220}></Doughnut>
-                                        </div>
-                                    </Card>
+                                    <div className="flex-column" style={{ minWidth: "500px" }}>
+                                        <Card className="flex-grow">
+                                            <div className="flex-row flex-grow flex-cell" style={{ minWidth: "500px", height: "220" }}>
+                                                <Doughnut data={allTeamsPieChartData} height={220}></Doughnut>
+                                            </div>
+                                        </Card>
+                                    </div>
                                 </div>
-                            </div>
+                            }
                         </div>
 
                         {isToastVisible && (
