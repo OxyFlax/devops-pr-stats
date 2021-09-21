@@ -8,8 +8,8 @@ The changes of this fork are mainly to provide a more readable reporting on revi
 
 ## Debug in local
 In order to debug in local and not requiring to deploy the app each time you do a change to test it, you can follow those instructions:
-* Apply the changes from branch "debug-in-local" in your local, but don't push them in the main branch nor in your PR
-* Deploy a new extension (different id) with the baseUri of localhost [azure-devops-extension.json](./azure-devops-extension.json) and add it to your organization
+* Build the application for testing using `yarn build:test`
+* Deploy this new extension and add it to your organization (if it's already deployed, you can publish an update with `yarn publish-test-extension --token [your token]`)
 * Install "Debugger for Firefox" extension on Visual Studio Code
 * Restart Visual Studio Code (you need to have the .vscode/launch.json like in the debug-in-local branch)
 * Install additional dependencies (yarn install)
@@ -18,6 +18,8 @@ In order to debug in local and not requiring to deploy the app each time you do 
 * Inside the window which opened, navigate to this URL: https://localhost:44300
 * Click on "Advanced..." and "Accept the Risk and Continue" => You should be able to see "Cannot GET /" on the page after that
 * Go in your azure repository and open the extension => it will target your local extension. Any change you perform and file you save will automatically reload the extension
+
+If this doesn't work, check [this link](https://docs.microsoft.com/en-us/azure/devops/extend/get-started/node?view=azure-devops) for basics
 
 ## Images
 ![json text](images/repoHub.PNG)
