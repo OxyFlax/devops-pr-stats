@@ -1,10 +1,11 @@
 {
     "manifestVersion": 1,
-    "id": "reviewers-stats",
+    "id": "reviewers-stats-test",
     "publisher": "oxyflax",
-    "version": "1.0.28",
+    "version": "1.0.4",
     "name": "Pull Requests Reviewers Statistics",
-    "description": "Will give KPI on the pull request reviewers",
+    "baseUri": "https://localhost:44300",
+    "description": "Will give KPI on the pull request reviewers - Test version working only with localhost webapp running",
     "public": false,
     "categories": ["Azure Repos"],
     "targets": [
@@ -51,9 +52,9 @@
     ],
     "contributions": [
         {
-            "id": "oxyflax-pr-completion-report",
+            "id": "oxyflax-pr-completion-report-test",
             "type": "ms.vss-web.hub",
-            "description": "Hub to show stats and information about the Pull Request completions in this repository.",
+            "description": "Hub to show stats and information about the Pull Request completions in this repository - Test version working only with localhost webapp running",
             "targets": [
                 "ms.vss-code-web.code-hub-group"
             ],

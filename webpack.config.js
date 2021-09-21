@@ -14,9 +14,15 @@ fs.readdirSync(panelsDir).filter(dir => {
 });
 
 module.exports = {
+    devtool: "inline-source-map",
+    devServer: {
+        https: true,
+        port: 44300
+    },
     entry: entries,
     output: {
-        filename: "[name]/[name].js"
+        filename: "[name]/[name].js",
+        publicPath: "/dist/"
     },
     resolve: {
         extensions: [".ts", ".tsx", ".js"],        
