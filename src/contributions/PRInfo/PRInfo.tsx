@@ -6,7 +6,7 @@ import { GitServiceIds, IVersionControlRepositoryService } from "azure-devops-ex
 import { Header, TitleSize } from "azure-devops-ui/Header";
 import { Page } from "azure-devops-ui/Page";
 import { GitRestClient, GitPullRequest, PullRequestStatus, GitPullRequestSearchCriteria, GitBranchStats } from "azure-devops-extension-api/Git";
-import { CommonServiceIds, getClient } from "azure-devops-extension-api";
+import { CommonServiceIds, getClient, IProjectPageService } from "azure-devops-extension-api";
 import { showRootComponent } from "../../Common";
 import { GitRepository, GitSuggestion, IdentityRefWithVote } from "azure-devops-extension-api/Git/Git";
 import {  fixedColumns,  ITableItem } from "./TableData";
@@ -317,12 +317,18 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
 
     /// Retrieve all repository teams with associated members
     public async retrieveAllMembers(repository: GitRepository) {
-        // TODO: improve this split to work with all sort of projects
-        const urlSplit = repository.url.split('/');
-        const projectName = urlSplit[urlSplit.length - 1];
+        const projectService = await SDK.getService<IProjectPageService>(CommonServiceIds.ProjectPageService);
+        const project = await projectService.getProject();
+        let projectName = project?.name;
+        if (!projectName) {
+            // If service doesn't provide the project information, use host page and repository url to guess it
+            const hostName = SDK.getHost().name;
+            const urlSplit = repository.url.split('/');
+            projectName = urlSplit.find(split => !!split && split !== hostName && split !== "_git") || urlSplit[urlSplit.length - 1];
+        }
         let teams = await this.retrieveTeams(projectName);
         await teams.forEach(async (team) => {
-            let members = (await this.retrieveTeamMembers(projectName, team)).map((member) => member.identity.displayName);
+            let members = (await this.retrieveTeamMembers(projectName!, team)).map((member) => member.identity.displayName);
             this.teamsDictionary.set(team.name, {name: team.name, members});
         });
     }
@@ -766,7 +772,7 @@ class RepositoryServiceHubContent extends React.Component<{}, IRepositoryService
                                                 }
                                                 <div className="flex-column">
                                                     <Card>
-                                                        <div className="flex-row" style={{minWidth:smallNumberOfReviewers ? 400 : 800, height:smallNumberOfReviewers ? 300 : 800}}>
+                                                        <div className="flex-row" style={{minWidth:smallNumberOfReviewers ? 400 : 800, height:smallNumberOfReviewers ? 400 : 800}}>
                                                             <Bar data={reviewerBarChartData} options={stackedChartOptions} height={300}></Bar>                                    
                                                         </div>
                                                     </Card>
