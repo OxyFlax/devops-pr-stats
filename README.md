@@ -19,7 +19,7 @@ In order to debug in local and not requiring to deploy the app each time you do 
 * Click on "Advanced..." and "Accept the Risk and Continue" => You should be able to see "Cannot GET /" on the page after that
 * Go in your azure repository and open the extension => it will target your local extension. Any change you perform and file you save will automatically reload the extension
 
-If this doesn't work, check [this link](https://docs.microsoft.com/en-us/azure/devops/extend/get-started/node?view=azure-devops) for basics
+If this doesn't work, check [this link](https://docs.microsoft.com/en-us/azure/devops/extend/get-started/node?view=azure-devops) for basics and [this link](https://github.com/microsoft/azure-devops-extension-hot-reload-and-debug) for hot reload tutorial
 
 ## Images
 ![json text](images/repoHub.PNG)
