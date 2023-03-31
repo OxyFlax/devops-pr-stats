@@ -1,19 +1,12 @@
 {
     "manifestVersion": 1,
-    "id": "prApprovalReport",
-    "publisher": "OneLuckiDev",
-    "version": "1.0.37",
-    "name": "Pull Request Completion Report",
-    "description": "This will give you insights in to who is approving the Pull Requests for your repository.",
-    "public": true,
-    "categories": [
-        "Azure Repos"
-    ],
-    "tags": [
-        "pull request",
-        "approval",
-        "report"
-    ],
+    "id": "reviewers-stats",
+    "publisher": "oxyflax",
+    "version": "1.0.28",
+    "name": "Pull Requests Reviewers Statistics",
+    "description": "Will give KPI on the pull request reviewers",
+    "public": false,
+    "categories": ["Azure Repos"],
     "targets": [
         {
             "id": "Microsoft.VisualStudio.Services"
@@ -56,16 +49,9 @@
             "addressable": true
         }
     ],
-    "badges": [
-        {
-            "href": "https://oneluckidev.visualstudio.com/OneLuckiDev/_apis/build/status/jeffpriz.devops-pr-stats?branchName=main",
-            "uri": "https://oneluckidev.visualstudio.com/OneLuckiDev/_apis/build/status/jeffpriz.devops-pr-stats?branchName=main",
-            "description": "Build for this extension run in Azure DevOps"
-        }
-    ],
     "contributions": [
         {
-            "id": "onelucki-pr-completion-report",
+            "id": "oxyflax-pr-completion-report",
             "type": "ms.vss-web.hub",
             "description": "Hub to show stats and information about the Pull Request completions in this repository.",
             "targets": [
@@ -83,18 +69,6 @@
         "vso.code",
         "vso.code_status"
     ],
-    "links": {
-        "support": {
-            "uri": "https://github.com/jeffpriz/devops-pr-stats/issues"
-        },
-        "repository": {
-            "uri": "https://github.com/jeffpriz/devops-pr-stats"
-        }
-    },
-    "repository": {
-        "type": "git",
-        "uri": "https://github.com/jeffpriz/devops-pr-stats"
-    },
     "branding": {
         "color": "rgb(27,160,225)",
         "theme": "dark"
